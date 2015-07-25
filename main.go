@@ -24,8 +24,7 @@ var serverPort = "8808"
 var conf *Conf
 var staticHandler http.Handler
 
-var configFile_template = `
-# proxystaticfile
+var configFile_template = ` # proxystaticfile
 # 使用  ./proxystaticfile -c ./proxystaticfile.conf
 # 默认挂载当前的的conf文件，配置文件使用 ini 格式输出
 # 【情景】
@@ -36,7 +35,7 @@ port = "8808"
 # 远程地址，在局域网中使用局域网地址；注意文件的相对路径
 hosts = "127.0.0.1|www.xxx.net/img"
 # 当前服务器端的文件所在地址
-localDir = "/Users/erasin/Sites/tmp/"
+localDir = "/Users/user/Sites/img/"
 `
 
 func init() {
