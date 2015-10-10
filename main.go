@@ -24,7 +24,7 @@ var configFile = "proxystaticfile.toml"
 var conf *Conf
 
 var configFile_template = ` # proxystaticfile
-# 使用  ./proxystaticfile -c ./proxystaticfile.conf
+# 使用  ./proxystaticfile -c ./proxystaticfile.toml
 # 默认挂载当前的的conf文件，配置文件使用 ini 格式输出
 # 【情景】
 #  用于代理均衡负载分布服务器的的静态文件输出，默认超时时间为30s
@@ -32,7 +32,7 @@ var configFile_template = ` # proxystaticfile
 # 运行端口
 port = "8808"
 # 远程地址，在局域网中使用局域网地址；注意文件的相对路径
-hosts = "127.0.0.1|www.xxx.net/img"
+hosts = ["127.0.0.1","www.xxx.net/img"]
 # 当前服务器端的文件所在地址
 localDir = "/Users/user/Sites/img/"
 `
@@ -54,6 +54,7 @@ func init() {
 func main() {
 
 	http.HandleFunc("/", findFile)
+
 	log.Println("[server]:start :", conf.Port)
 	err := http.ListenAndServe(":"+conf.Port, nil)
 	if err != nil {
@@ -63,7 +64,7 @@ func main() {
 }
 
 func findFile(w http.ResponseWriter, r *http.Request) {
-	log.Println("test")
+
 	url := r.URL.String()
 	url = strings.Trim(url, "%20")
 
@@ -84,7 +85,6 @@ func findFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// "/img/logo_s2.png"
 	// 远程查询文件
 	pf := newProxyFile(url)
 	header, data, status := pf.findFile()
@@ -120,7 +120,6 @@ func (this *proxyFile) findFile() (header http.Header, data []byte, status int) 
 	for _, hostStep := range this.hosts {
 		url := "http://" + hostStep + this.url
 
-		// go func() {
 		req := httplib.Get(url).SetTimeout(time.Second*10, time.Second*10)
 		resp, err := req.Response()
 		if err != nil {
@@ -130,27 +129,14 @@ func (this *proxyFile) findFile() (header http.Header, data []byte, status int) 
 		status = resp.StatusCode
 		header = resp.Header
 		log.Printf("[proxy][url]%s [%d]\n", url, status)
-		// findok <-status
 
 		if status == 200 {
 			data, _ = req.Bytes()
 			return
 		}
-
-		// }()
-
 	}
 
-	// for {
-	// 	select{
-	// 	case status := <-findok:
-	// 		if status == 200  {
-	// 			return
-	// 		}
-	// 	}
-	// }
-
-	status = 404
+	status = http.StatusNotFound
 	data = []byte("404: File is undefined!")
 	return
 }
