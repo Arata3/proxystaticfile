@@ -1,0 +1,11 @@
+language: go
+
+go:
+  - 1.4
+  - tip
+before_install:
+  - go get github.com/BurntSushi/toml
+install:
+  - go get github.com/erasin/proxystaticfile
+script:
+    go test

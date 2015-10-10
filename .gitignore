@@ -22,3 +22,7 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+proxystaticfile.linux
+proxystaticfile
+proxystaticfile.exe

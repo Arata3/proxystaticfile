@@ -10,19 +10,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/astaxie/beego/config"
+	"github.com/BurntSushi/toml"
 	"github.com/astaxie/beego/httplib"
 )
 
 type Conf struct {
-	hosts    []string
-	localDir string
+	Port     string
+	Hosts    []string
+	LocalDir string
 }
 
-var configFile = "proxystaticfile.conf"
-var serverPort = "8808"
+var configFile = "proxystaticfile.toml"
 var conf *Conf
-var staticHandler http.Handler
 
 var configFile_template = ` # proxystaticfile
 # 使用  ./proxystaticfile -c ./proxystaticfile.conf
@@ -39,69 +38,47 @@ localDir = "/Users/user/Sites/img/"
 `
 
 func init() {
+
 	if len(os.Args) > 1 {
-		flag.StringVar(&configFile, "c", "proxystaticfile.conf", "extention eg: proxystaticfile.conf")
+		flag.StringVar(&configFile, "c", "proxystaticfile.toml", "extention eg: -c proxystaticfile.toml")
 		flag.Parse()
 	}
 
-	iniconf, err := config.NewConfig("ini", configFile)
-	if err != nil {
-		log.Println("useage: ./proxystaticfile -c configs.conf")
-
-		// 当为当前目录直接执行则创建配置文件
-		if len(os.Args) == 1 {
-			file, _ := os.Create(configFile)
-			defer file.Close()
-			file.WriteString(configFile_template)
-		}
-
-		iniconf, err = config.NewConfig("ini", configFile)
-		if err != nil {
-			log.Fatal(err)
-		}
+	if _, err := toml.DecodeFile(configFile, &conf); err != nil {
+		log.Fatal("[conf]", err)
 	}
-
-	serverPort = iniconf.DefaultString("port", serverPort)
-
-	conf = &Conf{
-		hosts:    strings.Split(iniconf.String("hosts"), "|"),
-		localDir: filepath.Dir(iniconf.String("localdir")),
-	}
-
-	staticHandler = http.FileServer(http.Dir(conf.localDir))
+	log.Println(conf)
 
 }
 
 func main() {
 
 	http.HandleFunc("/", findFile)
-
-	log.Println("[server]:start :", serverPort)
-	err := http.ListenAndServe(":"+serverPort, nil)
+	log.Println("[server]:start :", conf.Port)
+	err := http.ListenAndServe(":"+conf.Port, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 }
 
 func findFile(w http.ResponseWriter, r *http.Request) {
-
+	log.Println("test")
 	url := r.URL.String()
 	url = strings.Trim(url, "%20")
 
 	log.Println("[geturl]:", url)
 
 	// 本地查询文件
-	path := filepath.Clean(conf.localDir + url)
+	path := filepath.Clean(conf.LocalDir + url)
 	file, err := os.Open(path)
 	defer file.Close()
+
 	if err != nil {
 		log.Println("[localfile]:", err)
 	} else {
 		fileInfo, _ := file.Stat()
 		log.Printf("[localfile]:%s is exist.\n", fileInfo.Name())
-		// staticHandler.ServeHTTP(w, r)
-		// var fb []byte
-		// file.Read(fb)
 		fb, _ := ioutil.ReadFile(path)
 		w.Write(fb)
 		return
@@ -118,8 +95,8 @@ func findFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(status)
-
 	w.Write(data)
+
 }
 
 // 代理文件请求
@@ -132,7 +109,7 @@ type proxyFile struct {
 func newProxyFile(url string) proxyFile {
 	return proxyFile{
 		url:   url,
-		hosts: conf.hosts,
+		hosts: conf.Hosts,
 	}
 }
 
@@ -144,7 +121,7 @@ func (this *proxyFile) findFile() (header http.Header, data []byte, status int) 
 		url := "http://" + hostStep + this.url
 
 		// go func() {
-		req := httplib.Get(url).SetTimeout(time.Second*30, time.Second*30)
+		req := httplib.Get(url).SetTimeout(time.Second*10, time.Second*10)
 		resp, err := req.Response()
 		if err != nil {
 			log.Println(err)
