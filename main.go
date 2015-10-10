@@ -25,7 +25,7 @@ var conf *Conf
 
 var configFile_template = ` # proxystaticfile
 # 使用  ./proxystaticfile -c ./proxystaticfile.toml
-# 默认挂载当前的的conf文件，配置文件使用 ini 格式输出
+# 默认挂载当前的的conf文件，配置文件使用 toml 格式输出
 # 【情景】
 #  用于代理均衡负载分布服务器的的静态文件输出，默认超时时间为30s
 
