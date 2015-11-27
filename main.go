@@ -12,6 +12,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/astaxie/beego/httplib"
+	"github.com/facebookgo/grace/gracehttp"
 )
 
 type Conf struct {
@@ -23,7 +24,7 @@ type Conf struct {
 var configFile = "proxystaticfile.toml"
 var conf *Conf
 
-var configFile_template = ` # proxystaticfile
+var configFileTemplate = ` # proxystaticfile
 # 使用  ./proxystaticfile -c ./proxystaticfile.toml
 # 默认挂载当前的的conf文件，配置文件使用 toml 格式输出
 # 【情景】
@@ -52,11 +53,10 @@ func init() {
 }
 
 func main() {
-
 	http.HandleFunc("/", findFile)
-
 	log.Println("[server]:start :", conf.Port)
-	err := http.ListenAndServe(":"+conf.Port, nil)
+	err := gracehttp.Serve(&http.Server{Addr: ":" + conf.Port, Handler: nil})
+	// err := http.ListenAndServe(":"+conf.Port, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -114,11 +114,11 @@ func newProxyFile(url string) proxyFile {
 }
 
 // 查询远程文件存在，仅返回200，400的数据
-func (this *proxyFile) findFile() (header http.Header, data []byte, status int) {
+func (p *proxyFile) findFile() (header http.Header, data []byte, status int) {
 	// chan findok int
 
-	for _, hostStep := range this.hosts {
-		url := "http://" + hostStep + this.url
+	for _, hostStep := range p.hosts {
+		url := "http://" + hostStep + p.url
 
 		req := httplib.Get(url).SetTimeout(time.Second*10, time.Second*10)
 		resp, err := req.Response()
