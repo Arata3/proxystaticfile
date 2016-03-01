@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -37,13 +38,17 @@ hosts = ["127.0.0.1","www.xxx.net/img"]
 # 当前服务器端的文件所在地址
 localDir = "/Users/user/Sites/img/"
 `
+var defaultToml = "proxystaticfile.toml"
 
 func init() {
 
-	if len(os.Args) > 1 {
-		flag.StringVar(&configFile, "c", "proxystaticfile.toml", "extention eg: -c proxystaticfile.toml")
-		flag.Parse()
+	if len(os.Args) > 1 && os.Args[1] == "new" {
+		newConfig()
+		os.Exit(1)
+
 	}
+	flag.StringVar(&configFile, "c", defaultToml, "extention eg: -c proxystaticfile.toml")
+	flag.Parse()
 
 	if _, err := toml.DecodeFile(configFile, &conf); err != nil {
 		log.Fatal("[conf]", err)
@@ -52,9 +57,19 @@ func init() {
 
 }
 
+func newConfig() {
+	t, err := os.Create(defaultToml)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	t.WriteString(configFileTemplate)
+	t.Close()
+}
+
 func main() {
 	http.HandleFunc("/", findFile)
 	log.Println("[server]:start :", conf.Port)
+	log.Println(conf)
 	err := gracehttp.Serve(&http.Server{Addr: ":" + conf.Port, Handler: nil})
 	// err := http.ListenAndServe(":"+conf.Port, nil)
 	if err != nil {
@@ -71,7 +86,7 @@ func findFile(w http.ResponseWriter, r *http.Request) {
 	log.Println("[geturl]:", url)
 
 	// 本地查询文件
-	path := filepath.Clean(conf.LocalDir + url)
+	path := filepath.Clean(path.Join(conf.LocalDir, url))
 	file, err := os.Open(path)
 	defer file.Close()
 
@@ -132,6 +147,7 @@ func (p *proxyFile) findFile() (header http.Header, data []byte, status int) {
 
 		if status == 200 {
 			data, _ = req.Bytes()
+			go writeFile(path.Join(conf.LocalDir, p.url), data)
 			return
 		}
 	}
@@ -139,4 +155,24 @@ func (p *proxyFile) findFile() (header http.Header, data []byte, status int) {
 	status = http.StatusNotFound
 	data = []byte("404: File is undefined!")
 	return
+}
+
+func writeFile(url string, b []byte) error {
+	dir, _ := path.Split(url)
+
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		log.Println("--wirteDir-->", err)
+	}
+
+	f, err := os.Create(url)
+	_, err = f.Write(b)
+
+	// err = p.req.ToFile(pf)
+	if err != nil {
+		log.Println("--wirteFile-->", err)
+	}
+	f.Close()
+
+	return err
 }
