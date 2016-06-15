@@ -16,10 +16,12 @@ import (
 	"github.com/facebookgo/grace/gracehttp"
 )
 
+// Conf 配置
 type Conf struct {
-	Port     string
-	Hosts    []string
-	LocalDir string
+	Port      string
+	Hosts     []string
+	LocalDir  string
+	WriteHere bool
 }
 
 var configFile = "proxystaticfile.toml"
@@ -37,6 +39,8 @@ port = "8808"
 hosts = ["127.0.0.1","www.xxx.net/img"]
 # 当前服务器端的文件所在地址
 localDir = "/Users/user/Sites/img/"
+# 代理的内容自动写入代理服务器
+WriteHere = false
 `
 var defaultToml = "proxystaticfile.toml"
 
@@ -57,6 +61,7 @@ func init() {
 
 }
 
+// newConfig 写入配置文件
 func newConfig() {
 	t, err := os.Create(defaultToml)
 	if err != nil {
@@ -128,7 +133,7 @@ func newProxyFile(url string) proxyFile {
 	}
 }
 
-// 查询远程文件存在，仅返回200，400的数据
+// findFile 查询远程文件存在，仅返回200，400的数据
 func (p *proxyFile) findFile() (header http.Header, data []byte, status int) {
 	// chan findok int
 
@@ -147,7 +152,9 @@ func (p *proxyFile) findFile() (header http.Header, data []byte, status int) {
 
 		if status == 200 {
 			data, _ = req.Bytes()
-			go writeFile(path.Join(conf.LocalDir, p.url), data)
+			if conf.WriteHere {
+				go writeFile(path.Join(conf.LocalDir, p.url), data)
+			}
 			return
 		}
 	}
@@ -157,6 +164,7 @@ func (p *proxyFile) findFile() (header http.Header, data []byte, status int) {
 	return
 }
 
+// writeFile 将文件同步写入到本地文件
 func writeFile(url string, b []byte) error {
 	dir, _ := path.Split(url)
 
