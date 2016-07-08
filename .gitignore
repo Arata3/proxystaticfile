@@ -26,3 +26,6 @@ _testmain.go
 proxystaticfile.linux
 proxystaticfile
 proxystaticfile.exe
+
+.vscode
+.DS_Store
