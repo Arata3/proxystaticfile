@@ -8,19 +8,19 @@
 当使用多台服务器的负载均衡处理，上传无中心处理的时候, A 文件在 S1 服务上传了文件， B文件在 S2 服务器需要访问，
 这个时候由代理服务来轮训（现在为顺序轮训）节点服务的资源，然后返回资源并备份到当前服务中心。
 
-用户访问的页面请求的静态资源走CDN服务器（可不用），CDN找不到，从我们的 源服务器（资源中心）获取文件，
+用户访问的页面请求的静态资源走CDN服务器（可不用），CDN找不到文件，CDN会从源服务器（资源中心）获取文件，
 nginx 检查本地文件是否存在，不存在则使用代理轮训已经配置的节点服务器，轮训查找后则将文件返回并在本地进行
 备份存储。
 
+寻寻找文件的优先级为 "CDN -> 源主机 -> 轮询其他主机的位置"
+
 > 关于轮训的方式，当前的仅做了顺序轮训，后面利用 golang 的特性 使用 `sync.WaitGroup` 计数或者
 > 使用并行通信 `chan` 来并发加速查询，加快查询的速度。
-
 
 * **port** 为服务运行端口，之后交给nginx代理使用
 * **hosts** 为节点服务器的地址，不带有 `http://` 的相对的 `URL` 路径
 * **localDir** 为存储文件的本地地址，需要配置，因为要检查文件
 * **WriteHere** 是否写入
-
 
 ```
 # proxystaticfile
@@ -37,6 +37,32 @@ hosts = ["127.0.0.1","www.xxx.net/img"]
 localDir = "/Users/user/Sites/img/"
 # 代理的内容自动写入代理服务器
 WriteHere = false
+```
+
+nginx 配置：
+
+```nginx
+
+location /(css|js|fonts|img)/ {
+    access_log off;
+    expires 1d;
+
+    root "/path/to/app_b/static"
+    try_files $uri @backend
+}
+
+location /uploads/ {
+    try_files /_not_exists_ @backend;
+}
+
+
+location @backend {
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header Host            $http_host;
+
+    proxy_pass http://127.0.0.1:8081;
+}
+
 ```
 
 
